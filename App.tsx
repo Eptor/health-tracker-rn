@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
   View,
@@ -13,9 +13,10 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { FAB, Portal, Provider } from "react-native-paper";
 import { StatusBar } from "expo-status-bar";
+import * as SQLite from "expo-sqlite";
 
 type Vital = {
-  id: string;
+  id: number;
   temperature_c: number | null;
   systolic: number | null;
   diastolic: number | null;
@@ -25,38 +26,71 @@ type Vital = {
 };
 
 const Dashboard = () => {
-  const [data, setData] = useState<Vital[]>([
-    {
-      id: "1",
-      temperature_c: 37.2,
-      systolic: 120,
-      diastolic: 80,
-      heart_rate: 72,
-      notes: "Todo normal",
-      created_at: new Date().toISOString(),
-    },
-  ]);
-
-  const lastRecord = data[0];
-
+  const [data, setData] = useState<Vital[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [temperature, setTemperature] = useState("");
   const [heartRate, setHeartRate] = useState("");
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
   const [notes, setNotes] = useState("");
+  const [db, setDb] = useState<any>(null);
 
-  const addRecord = () => {
-    const newRecord: Vital = {
-      id: (data.length + 1).toString(),
-      temperature_c: Number(temperature),
-      systolic: Number(systolic),
-      diastolic: Number(diastolic),
-      heart_rate: Number(heartRate),
-      notes: notes || undefined,
+  useEffect(() => {
+    const initDb = async () => {
+      const database = await SQLite.openDatabaseAsync("health.db");
+      setDb(database);
+
+      await database.execAsync(`
+        PRAGMA journal_mode = WAL;
+        CREATE TABLE IF NOT EXISTS vitals (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          temperature_c REAL,
+          systolic REAL,
+          diastolic REAL,
+          heart_rate REAL,
+          notes TEXT,
+          created_at TEXT
+        );
+      `);
+
+      await loadData(database);
+    };
+
+    initDb();
+  }, []);
+
+  const loadData = async (database?: any) => {
+    const dbInstance = database || db;
+    if (!dbInstance) return;
+
+    const allRows = await dbInstance.getAllAsync("SELECT * FROM vitals ORDER BY id DESC");
+    setData(allRows);
+  };
+
+  const addRecord = async () => {
+    if (!db) return;
+
+    const newRecord = {
+      temperature_c: Number(temperature) || null,
+      systolic: Number(systolic) || null,
+      diastolic: Number(diastolic) || null,
+      heart_rate: Number(heartRate) || null,
+      notes: notes || null,
       created_at: new Date().toISOString(),
     };
-    setData([newRecord, ...data]);
+
+    await db.runAsync(
+      `INSERT INTO vitals (temperature_c, systolic, diastolic, heart_rate, notes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      newRecord.temperature_c,
+      newRecord.systolic,
+      newRecord.diastolic,
+      newRecord.heart_rate,
+      newRecord.notes,
+      newRecord.created_at
+    );
+
+    await loadData();
     setModalVisible(false);
     setTemperature("");
     setHeartRate("");
@@ -65,39 +99,58 @@ const Dashboard = () => {
     setNotes("");
   };
 
-  const renderItem = ({ item }: { item: Vital }) => (
-    <View style={styles.card}>
-      <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
-      <View style={styles.row}>
-        <View style={[styles.pill, { backgroundColor: "#1e3a8a" }]}>
-          <Ionicons name="thermometer" size={16} color="#93c5fd" />
-          <Text style={styles.pillText}>{item.temperature_c ?? "--"} °C</Text>
-        </View>
-        <View style={[styles.pill, { backgroundColor: "#065f46" }]}>
-          <MaterialCommunityIcons name="blood-bag" size={16} color="#34d399" />
-          <Text style={styles.pillText}>
-            {item.systolic}/{item.diastolic} mmHg
-          </Text>
-        </View>
-        <View style={[styles.pill, { backgroundColor: "#9d174d" }]}>
-          <Ionicons name="heart" size={16} color="#f472b6" />
-          <Text style={styles.pillText}>{item.heart_rate ?? "--"} lpm</Text>
-        </View>
-        {item.notes ? (
-          <View style={[styles.pill, { backgroundColor: "#6d28d9" }]}>
-            <MaterialCommunityIcons name="note-text-outline" size={16} color="#a78bfa" />
-            <Text style={styles.pillText}>{item.notes}</Text>
+  const lastRecord = data[0];
+
+  const renderItem = ({ item }: { item: Vital }) => {
+    const handleDelete = async () => {
+      if (!db) return;
+      await db.runAsync("DELETE FROM vitals WHERE id = ?", item.id);
+      await loadData();
+    };
+
+    return (
+      <View style={styles.card}>
+        <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
+        <View style={styles.row}>
+          <View style={[styles.pill, { backgroundColor: "#1e3a8a" }]}>
+            <Ionicons name="thermometer" size={16} color="#93c5fd" />
+            <Text style={styles.pillText}>{item.temperature_c ?? "--"} °C</Text>
           </View>
-        ) : null}
+          <View style={[styles.pill, { backgroundColor: "#065f46" }]}>
+            <MaterialCommunityIcons name="blood-bag" size={16} color="#34d399" />
+            <Text style={styles.pillText}>
+              {item.systolic}/{item.diastolic ?? "--"} mmHg
+            </Text>
+          </View>
+          <View style={[styles.pill, { backgroundColor: "#9d174d" }]}>
+            <Ionicons name="heart" size={16} color="#f472b6" />
+            <Text style={styles.pillText}>{item.heart_rate ?? "--"} lpm</Text>
+          </View>
+          {item.notes ? (
+            <View style={[styles.pill, { backgroundColor: "#6d28d9" }]}>
+              <MaterialCommunityIcons name="note-text-outline" size={16} color="#a78bfa" />
+              <Text style={styles.pillText}>{item.notes}</Text>
+            </View>
+          ) : null}
+          {/* Botón de eliminar */}
+          <TouchableOpacity
+            style={[styles.pill, { backgroundColor: "#b91c1c" }]}
+            onPress={handleDelete}
+          >
+            <Ionicons name="trash" size={16} color="#fca5a5" />
+            <Text style={styles.pillText}>Eliminar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
+
 
   return (
     <Provider>
       <StatusBar style="light" />
       <SafeAreaView style={styles.container}>
-        {lastRecord && (
+        {lastRecord ? (
           <View style={styles.summary}>
             <Text style={styles.summaryTitle}>Último registro</Text>
             <View style={styles.kpiColumn}>
@@ -117,31 +170,44 @@ const Dashboard = () => {
               </View>
             </View>
           </View>
+        ) : (
+          <View style={styles.summary}>
+            <Text style={styles.summaryTitle}>Último registro</Text>
+            <View style={styles.kpiColumn}>
+              <View style={[styles.kpiCard, { borderColor: "#1e3a8a" }]}>
+                <Text style={styles.kpiTitle}>Temperatura</Text>
+                <Text style={styles.kpiValue}>-- °C</Text>
+              </View>
+              <View style={[styles.kpiCard, { borderColor: "#065f46" }]}>
+                <Text style={styles.kpiTitle}>Presión</Text>
+                <Text style={styles.kpiValue}>
+                  --/-- mmHg
+                </Text>
+              </View>
+              <View style={[styles.kpiCard, { borderColor: "#9d174d" }]}>
+                <Text style={styles.kpiTitle}>Ritmo</Text>
+                <Text style={styles.kpiValue}>-- lpm</Text>
+              </View>
+            </View>
+          </View>
         )}
+
 
         <View style={{ padding: 16 }}>
           <Text style={styles.sectionTitle}>Historial</Text>
           <FlatList
             data={data}
             renderItem={renderItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
           />
         </View>
 
         <Portal>
-          <FAB
-            icon="plus"
-            style={styles.fab}
-            onPress={() => setModalVisible(true)}
-          />
+          <FAB icon="plus" style={styles.fab} onPress={() => setModalVisible(true)} />
         </Portal>
 
-        <Modal
-          visible={modalVisible}
-          animationType="slide"
-          presentationStyle="pageSheet"
-        >
+        <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
           <SafeAreaView style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Nuevo Registro</Text>
