@@ -40,27 +40,49 @@ const Dashboard = () => {
         {new Date(item.created_at).toLocaleString()}
       </Text>
       <View style={styles.row}>
-        {item.temperature_c && (
+        {item.temperature_c ? (
           <View style={[styles.pill, { backgroundColor: "#1e3a8a" }]}>
             <Ionicons name="thermometer" size={16} color="#93c5fd" />
             <Text style={styles.pillText}>{item.temperature_c} °C</Text>
           </View>
+        ) : (
+          <View style={[styles.pill, { backgroundColor: "#1e3a8a" }]}>
+            <Ionicons name="thermometer-outline" size={16} color="#93c5fd" />
+            <Text style={styles.pillText}>-- °C</Text>
+          </View>
         )}
-        {item.systolic && item.diastolic && (
+
+        {item.systolic && item.diastolic ? (
           <View style={[styles.pill, { backgroundColor: "#065f46" }]}>
             <MaterialCommunityIcons name="blood-bag" size={16} color="#34d399" />
             <Text style={styles.pillText}>
               {item.systolic}/{item.diastolic} mmHg
             </Text>
           </View>
+        ) : (
+          <View style={[styles.pill, { backgroundColor: "#065f46" }]}>
+            <MaterialCommunityIcons
+              name="heart-pulse"
+              size={16}
+              color="#34d399"
+            />
+            <Text style={styles.pillText}>-- / -- mmHg</Text>
+          </View>
         )}
-        {item.heart_rate && (
+
+        {item.heart_rate ? (
           <View style={[styles.pill, { backgroundColor: "#9d174d" }]}>
             <Ionicons name="heart" size={16} color="#f472b6" />
             <Text style={styles.pillText}>{item.heart_rate} lpm</Text>
           </View>
+        ) : (
+          <View style={[styles.pill, { backgroundColor: "#9d174d" }]}>
+            <Ionicons name="heart-outline" size={16} color="#f472b6" />
+            <Text style={styles.pillText}>-- lpm</Text>
+          </View>
         )}
-        {item.notes && (
+
+        {item.notes ? (
           <View style={[styles.pill, { backgroundColor: "#6d28d9" }]}>
             <MaterialCommunityIcons
               name="note-text-outline"
@@ -69,10 +91,20 @@ const Dashboard = () => {
             />
             <Text style={styles.pillText}>{item.notes}</Text>
           </View>
+        ) : (
+          <View style={[styles.pill, { backgroundColor: "#6d28d9" }]}>
+            <MaterialCommunityIcons
+              name="comment-outline"
+              size={16}
+              color="#a78bfa"
+            />
+            <Text style={styles.pillText}>Sin notas</Text>
+          </View>
         )}
       </View>
     </View>
   );
+
 
   return (
     <Provider>
@@ -80,10 +112,12 @@ const Dashboard = () => {
         {lastRecord && (
           <View style={styles.summary}>
             <Text style={styles.summaryTitle}>Último registro</Text>
-            <View style={styles.kpiRow}>
+            <View style={styles.kpiColumn}>
               <View style={[styles.kpiCard, { borderColor: "#1e3a8a" }]}>
                 <Text style={styles.kpiTitle}>Temperatura</Text>
-                <Text style={styles.kpiValue}>{lastRecord.temperature_c ?? "--"} °C</Text>
+                <Text style={styles.kpiValue}>
+                  {lastRecord.temperature_c ?? "--"} °C
+                </Text>
               </View>
               <View style={[styles.kpiCard, { borderColor: "#065f46" }]}>
                 <Text style={styles.kpiTitle}>Presión</Text>
@@ -95,11 +129,14 @@ const Dashboard = () => {
               </View>
               <View style={[styles.kpiCard, { borderColor: "#9d174d" }]}>
                 <Text style={styles.kpiTitle}>Ritmo</Text>
-                <Text style={styles.kpiValue}>{lastRecord.heart_rate ?? "--"} lpm</Text>
+                <Text style={styles.kpiValue}>
+                  {lastRecord.heart_rate ?? "--"} lpm
+                </Text>
               </View>
             </View>
           </View>
         )}
+
 
         <View style={{ padding: 16 }}>
           <Text style={styles.sectionTitle}>Historial</Text>
@@ -128,7 +165,6 @@ const styles = StyleSheet.create({
   summary: { marginBottom: 20, padding: 16 },
   summaryTitle: { color: "#fff", fontWeight: "700", fontSize: 20, marginBottom: 12 },
   kpiRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
-  kpiCard: { flex: 1, padding: 12, borderWidth: 2, borderRadius: 16, marginHorizontal: 4, alignItems: "center", backgroundColor: "#1e293b" },
   kpiTitle: { color: "#cbd5e1", fontSize: 14, fontWeight: "600" },
   kpiValue: { color: "#fff", fontSize: 20, fontWeight: "800", marginTop: 4 },
 
@@ -140,6 +176,20 @@ const styles = StyleSheet.create({
   pillText: { marginLeft: 6, color: "#fff", fontSize: 13 },
 
   fab: { position: "absolute", right: 16, bottom: 16, backgroundColor: "#3b82f6" },
+  kpiColumn: {
+    flexDirection: "column",  // columna para que cada card quede debajo de la otra
+  },
+  kpiCard: {
+    padding: 12,
+    borderWidth: 2,
+    borderRadius: 16,
+    marginHorizontal: 4,
+    marginBottom: 12,
+    alignItems: "center",
+    backgroundColor: "#1e293b",
+    minHeight: 80,
+    justifyContent: "center"
+  }
 });
 
 export default Dashboard;
